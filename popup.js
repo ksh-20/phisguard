@@ -267,7 +267,6 @@ class PhishGuardPopup {
             }
           });
         } catch (injectionError) {
-          // Content script injection failed, but URL analysis succeeded
           console.log('Content script injection failed, but URL analysis completed:', injectionError.message);
         }
       } else {
