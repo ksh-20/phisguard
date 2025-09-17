@@ -445,5 +445,87 @@ class PhishGuardBackground {
   }
 }
 
+class BackgroundAPIOnly {
+	constructor() {
+		this.apiConfig = {
+			enabled: true,
+			endpoint: 'http://127.0.0.1:8000/analyze',
+			apiKey: '',
+			timeout: 8000
+		};
+		this.init();
+	}
+
+	init() {
+		chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+			if (changeInfo.status === 'complete' && tab.url) {
+				this.analyzeViaAPI(tab.url, tabId);
+			}
+		});
+
+		chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+			switch (request.action) {
+				case 'analyzeUrl':
+					this.analyzeViaAPI(request.url, sender.tab?.id).then((res) => {
+						sendResponse({ riskScore: res });
+					}).catch(() => {
+						sendResponse({ riskScore: { score: 0, reasons: ['API unavailable'], source: 'API' } });
+					});
+					return true;
+				default:
+					sendResponse({});
+			}
+		});
+	}
+
+	async analyzeViaAPI(url, tabId) {
+		if (!this.apiConfig.enabled || !this.apiConfig.endpoint) {
+			return { score: 0, reasons: ['API disabled'], source: 'API' };
+		}
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), this.apiConfig.timeout);
+		try {
+			const headers = { 'Content-Type': 'application/json' };
+			if (this.apiConfig.apiKey) headers['Authorization'] = `Bearer ${this.apiConfig.apiKey}`;
+			// Build richer payload to match your Colab preprocessing
+			let origin = '';
+			let hostname = '';
+			let pathname = '';
+			try {
+				const u = new URL(url);
+				origin = u.origin;
+				hostname = u.hostname;
+				pathname = u.pathname;
+			} catch {}
+			const response = await fetch(this.apiConfig.endpoint, {
+				method: 'POST',
+				headers,
+				body: JSON.stringify({ url, origin, hostname, pathname, timestamp: Date.now() }),
+				signal: controller.signal
+			});
+			clearTimeout(timeoutId);
+			if (!response.ok) throw new Error('API error');
+			const result = await response.json();
+			const riskScore = {
+				score: result.riskScore ?? result.confidence ?? 0,
+				reasons: result.reasons ?? [],
+				source: 'API'
+			};
+			if (typeof tabId === 'number') {
+				try {
+					await chrome.tabs.sendMessage(tabId, { action: 'displayAnalysisResult', url, riskScore });
+					if (riskScore.score >= 0.7) {
+						await chrome.tabs.sendMessage(tabId, { action: 'showWarning', url, reason: 'High risk (API)' });
+					}
+				} catch {}
+			}
+			return riskScore;
+		} catch (e) {
+			return { score: 0, reasons: ['API unavailable'], source: 'API' };
+		}
+	}
+}
+
 // Initialize the background service
-new PhishGuardBackground();
+// Only initialize API-only background
+new BackgroundAPIOnly();
