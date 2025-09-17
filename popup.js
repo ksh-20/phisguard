@@ -352,7 +352,7 @@ class PhishGuardPopup {
 
   showHelp() {
     chrome.tabs.create({
-      url: 'https://github.com/phishguard/help'
+      url: 'https://github.com/ksh-20/phisguard'
     });
   }
 
@@ -370,7 +370,7 @@ class PhishGuardPopup {
 
   showFeedback() {
     chrome.tabs.create({
-      url: 'https://github.com/phishguard/feedback'
+      url: 'https://github.com/ksh-20/phisguard'
     });
   }
 
