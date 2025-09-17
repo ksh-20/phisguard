@@ -216,6 +216,29 @@ class PhishGuard {
         }
       }
 
+      // Piracy indicators (host and path)
+      const host = urlObj.hostname.toLowerCase();
+      const piracyHostIndicators = [
+        'movierulz', 'cinevood', 'vegamovies', 'filmyzilla', '123movies',
+        'tamilrockers', 'tamilmv', 'isaimini', 'khatrimaza', 'hdhub4u',
+        'kuttymovies', 'bolly4u', 'mp4moviez', '9xmovies', 'extramovies'
+      ];
+      const piracyTlds = ['.skin', '.vin', '.cam', '.cfd', '.rest', '.buzz', '.villas'];
+      if (piracyHostIndicators.some(ind => host.includes(ind))) {
+        score += 0.4;
+        reasons.push('Known piracy domain pattern detected');
+      }
+      if (piracyTlds.some(t => host.endsWith(t))) {
+        score += 0.15;
+        reasons.push('Suspicious/ephemeral TLD associated with piracy');
+      }
+      const full = (host + path).toLowerCase();
+      const piracyKeywords = ['watch-online', 'watchonline', 'download', 'hdrip', 'brrip', 'dvdscr', 'camrip'];
+      if (piracyKeywords.some(k => full.includes(k))) {
+        score += 0.15;
+        reasons.push('Piracy-related keyword patterns detected');
+      }
+
       return {
         score: Math.min(score, 1.0),
         reasons: reasons

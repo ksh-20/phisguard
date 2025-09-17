@@ -4,8 +4,8 @@ class PhishGuardBackground {
     this.knownLegitimateUrls = new Set();
     this.blockedUrls = new Set();
     this.apiConfig = {
-      enabled: false,
-      endpoint: '',
+      enabled: true,
+      endpoint: 'http://127.0.0.1:8000/analyze',
       apiKey: '',
       timeout: 5000
     };
@@ -177,6 +177,31 @@ class PhishGuardBackground {
           score += 0.05;
           reasons.push(`Suspicious keyword in URL: ${keyword}`);
         }
+      }
+
+      // Piracy/warez indicators (boost risk for known piracy patterns)
+      const piracyHostIndicators = [
+        'movierulz', 'cinevood', 'vegamovies', 'filmyzilla', '123movies',
+        'tamilrockers', 'tamilmv', 'isaimini', 'khatrimaza', 'hdhub4u',
+        'kuttymovies', 'bolly4u', 'mp4moviez', '9xmovies', 'extramovies'
+      ];
+      const piracyTlds = ['.skin', '.skin', '.vin', '.cam', '.cfd', '.rest', '.buzz', '.villas'];
+      const host = urlObj.hostname.toLowerCase();
+      if (piracyHostIndicators.some(ind => host.includes(ind))) {
+        score += 0.4;
+        reasons.push('Known piracy domain pattern detected');
+      }
+      if (piracyTlds.some(t => host.endsWith(t))) {
+        score += 0.15;
+        reasons.push('Suspicious/ephemeral TLD associated with piracy');
+      }
+
+      // Keyword indicators in host or path for streaming/download scams
+      const piracyKeywords = ['watch-online', 'watchonline', 'download', 'hdrip', 'brrip', 'dvdscr', 'camrip'];
+      const full = (host + path).toLowerCase();
+      if (piracyKeywords.some(k => full.includes(k))) {
+        score += 0.15;
+        reasons.push('Piracy-related keyword patterns detected');
       }
 
       return {
